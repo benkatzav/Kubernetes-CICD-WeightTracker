@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weight-tracker-app
+spec:
+  selector:
+    matchLabels:
+      app: weight-tracker
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: weight-tracker
+    spec:
+      containers:
+      - name: weight-tracker
+        image: weightappregistrybk.azurecr.io/bootcampapp
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - secretRef:
+             name: secrets

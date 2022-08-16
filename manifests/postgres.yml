@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      db: postgres
+  template:
+    metadata:
+      labels:
+        db: postgres
+        app: weight-tracker
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:12
+        ports:
+        - containerPort: 5432
+        envFrom:
+          - secretRef:
+              name: secrets
+
+---
+
+kind: Service
+apiVersion: v1
+metadata:
+  name: postgres-service
+  labels:
+    app: weight-tracker
+spec:
+  selector:
+    db: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

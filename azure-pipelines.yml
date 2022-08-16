@@ -1,0 +1,105 @@
+name: dockercicd
+
+trigger:
+  - master
+  - feature/*
+
+pool:
+  name: wt-pool
+variables:
+  dockerRegistryServiceConnection: 'weightapp'
+  imageRepository: 'bootcampapp'
+  containerRegLogin: 'weightappregistrybk.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  kubernetesConnection: 'Staging-Weight-Tracker-Cluster-Staging-default-1659908915662'
+  kubernetesConnectionProd: 'Production-Weight-Tracker-Cluster-Production-default-1659908941983'
+  tag: '$(Build.BuildId)'
+
+stages:
+  # Continuous Integration Process
+  - stage: CI
+    jobs:
+      - job: BuildAndPushDocker
+        workspace:
+          clean: all
+        steps:
+          - task: Docker@2
+            displayName: Build and push an image to container registry
+            inputs:
+              command: buildAndPush
+              repository: $(imageRepository)
+              dockerfile: $(dockerfilePath)
+              containerRegistry: $(dockerRegistryServiceConnection)
+              tags: |
+                $(tag)
+          - upload: manifests
+            artifact: manifests
+
+  - stage: DeployToStaging
+    displayName: Deploy Staging
+    dependsOn: CI
+    jobs:
+    - deployment: Deploy
+      displayName: Deploy
+      environment: 'Staging.default'
+      variables:
+       - group: "staging-variables"
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: KubernetesManifest@0
+              displayName: Create imagePullSecret
+              inputs:
+                action: 'createSecret'
+                kubernetesServiceConnection: $(kubernetesConnection)
+                secretType: 'generic'
+                secretName: 'secrets'
+                secretArguments: '--from-literal=COOKIE_ENCRYPT_PWD=$(COOKIE_ENCRYPT_PWD) --from-literal=HOST=$(HOST) --from-literal=PORT=$(PORT) --from-literal=NODE_ENV=$(NODE_ENV) --from-literal=HOST_URL=$(HOST_URL) --from-literal=OKTA_CLIENT_ID=$(OKTA_CLIENT_ID) --from-literal=OKTA_CLIENT_SECRET=$(OKTA_CLIENT_SECRET) --from-literal=OKTA_ORG_URL=$(OKTA_ORG_URL)  --from-literal=PGHOST=$(PGHOST) --from-literal=PGUSERNAME=$(PGUSERNAME) --from-literal=PGDATABASE=$(PGDATABASE) --from-literal=PGPASSWORD=$(PGPASSWORD)  --from-literal=PGPORT=$(PGPORT) --from-literal=POSTGRES_PASSWORD=$(PGPASSWORD)'
+            
+            - task: KubernetesManifest@0
+              displayName: Deploy to Kubernetes cluster
+              inputs:
+                action: 'deploy'
+                kubernetesServiceConnection: $(kubernetesConnection)
+                manifests: |
+                  $(Pipeline.Workspace)/manifests/postgres.yml
+                  $(Pipeline.Workspace)/manifests/deployment.yml
+                  $(Pipeline.Workspace)/manifests/service.yml
+                  $(Pipeline.Workspace)/manifests/ingress.yml
+                containers: '$(containerRegLogin)/bootcampapp:$(tag)'
+
+  - stage: DeployToProduction
+    displayName: Deploy Production
+    dependsOn: DeployToStaging
+    jobs:
+    - deployment: Deploy
+      displayName: Deploy
+      environment: 'Production.default'
+      variables:
+       - group: "production-variables"
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - task: KubernetesManifest@0
+              displayName: Create imagePullSecret
+              inputs:
+                action: 'createSecret'
+                kubernetesServiceConnection: $(kubernetesConnectionProd)
+                secretType: 'generic'
+                secretName: 'secrets'
+                secretArguments: '--from-literal=COOKIE_ENCRYPT_PWD=$(COOKIE_ENCRYPT_PWD) --from-literal=HOST=$(HOST) --from-literal=PORT=$(PORT) --from-literal=NODE_ENV=$(NODE_ENV) --from-literal=HOST_URL=$(HOST_URL) --from-literal=OKTA_CLIENT_ID=$(OKTA_CLIENT_ID) --from-literal=OKTA_CLIENT_SECRET=$(OKTA_CLIENT_SECRET) --from-literal=OKTA_ORG_URL=$(OKTA_ORG_URL)  --from-literal=PGHOST=$(PGHOST) --from-literal=PGUSERNAME=$(PGUSERNAME) --from-literal=PGDATABASE=$(PGDATABASE) --from-literal=PGPASSWORD=$(PGPASSWORD)  --from-literal=PGPORT=$(PGPORT) --from-literal=POSTGRES_PASSWORD=$(PGPASSWORD)'
+
+            - task: KubernetesManifest@0
+              displayName: Deploy to Kubernetes cluster
+              inputs:
+                action: 'deploy'
+                kubernetesServiceConnection: $(kubernetesConnectionProd)
+                manifests: |
+                  $(Pipeline.Workspace)/manifests/postgres.yml
+                  $(Pipeline.Workspace)/manifests/deployment.yml
+                  $(Pipeline.Workspace)/manifests/service.yml
+                  $(Pipeline.Workspace)/manifests/ingress.yml
+                containers: '$(containerRegLogin)/bootcampapp:$(tag)'
+

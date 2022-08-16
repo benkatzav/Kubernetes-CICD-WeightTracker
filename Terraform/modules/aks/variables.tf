@@ -1,0 +1,13 @@
+variable "cluster_name" {}
+variable "rg_name" {}
+variable "domain_prefix" {}
+variable "server_location" {}
+variable "aks_k8s_version" {}
+variable "aks_min_server_count" {}
+variable "aks_max_server_count" {}
+variable "aks_osdisksize" {}
+variable "aks_vm_size" {}
+variable "admin_user" {}
+variable "ssh_public_key" {}
+variable "aks_max_pods_per_node" {}
+variable "scope" {}
