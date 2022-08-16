@@ -1,3 +1,7 @@
+##  CI/CD pipeline requirements
+<img width="550" alt="docker-cicd" src="https://user-images.githubusercontent.com/83014719/142743862-3c90bf61-bab6-4287-bb4a-d016706c1fa2.png">
+
+
 # Node.js Weight Tracker
 
 ![Demo](docs/build-weight-tracker-app-demo.gif)
